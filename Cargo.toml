@@ -1,9 +1,9 @@
 [package]
 edition = "2018"
-name = "stew"
-version = "0.2.0"
+name = "combostew"
+version = "0.1.0"
 authors = ["Martijn Gribnau <garm@ilumeo.com>"]
-description = "Stew is a set of image transformation tools. It allows images to be transformed using individual executables and allows pipes to be used to combine multiple tools."
+description = "Combostew is an intermediate layer between the image crate and the 'sic' and 'stew' image tool front-ends."
 license = "MIT"
 repository = "https://github.com/foresterre/stew"
 readme = "README.md"
@@ -23,7 +23,7 @@ clap = "2.32.0"
 image = "0.21.0"
 
 [lib]
-name = "stew_lib"
+name = "combostew"
 path = "src/lib.rs"
 
 [profile.release]
