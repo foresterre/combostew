@@ -122,6 +122,7 @@ mod tests {
 
     fn setup_dummy_config(output: &str) -> Config {
         Config {
+            tool_name: env!("CARGO_PKG_NAME").to_string(),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,

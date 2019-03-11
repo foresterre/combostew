@@ -3,7 +3,7 @@ use crate::operations::transformations::apply_operations_on_image;
 use crate::operations::Operation;
 use crate::processor::ProcessMutWithConfig;
 
-pub(crate) struct ImageOperationsProcessor<'a> {
+pub struct ImageOperationsProcessor<'a> {
     buffer: &'a mut image::DynamicImage,
     operation: Option<Operation>,
 }

@@ -10,10 +10,10 @@ use crate::processor::image_operations::ImageOperationsProcessor;
 use crate::processor::license_display::LicenseDisplayProcessor;
 use crate::processor::{ProcessMutWithConfig, ProcessWithConfig};
 
-mod config;
-mod io;
+pub mod config;
+pub mod io;
 pub mod operations;
-mod processor;
+pub mod processor;
 
 pub fn get_app_skeleton(name: &str) -> App<'static, 'static> {
     App::new(name)
@@ -63,8 +63,9 @@ pub fn get_app_skeleton(name: &str) -> App<'static, 'static> {
 
 // Here any option should not panic when invalid.
 // Previously, it was allowed to panic within Config, but this is no longer the case.
-pub fn get_default_config(matches: &ArgMatches) -> Result<Config, String> {
+pub fn get_default_config(matches: &ArgMatches, tool_name: &str) -> Result<Config, String> {
     let res = Config {
+        tool_name: tool_name.to_string(),
         licenses: match (
             matches.is_present("license"),
             matches.is_present("dep_licenses"),
@@ -104,8 +105,8 @@ pub fn get_default_config(matches: &ArgMatches) -> Result<Config, String> {
 /// The run function runs the sic application, taking the matches found by Clap.
 /// This function is separated from the main() function so that it can be used more easily in test cases.
 /// This function consumes the matches provided.
-pub fn run(matches: &ArgMatches, operation: Option<Operation>) -> Result<(), String> {
-    let options = get_default_config(&matches)?;
+pub fn run(matches: &ArgMatches, operation: Option<Operation>, tool_name: &str) -> Result<(), String> {
+    let options = get_default_config(&matches, tool_name)?;
 
     if options.output.is_none() {
         eprintln!(
@@ -126,8 +127,8 @@ pub fn run(matches: &ArgMatches, operation: Option<Operation>) -> Result<(), Str
     export(&img, &format_decider, &options)
 }
 
-pub fn run_display_licenses(matches: &ArgMatches) -> Result<(), String> {
-    let options = get_default_config(&matches)?;
+pub fn run_display_licenses(matches: &ArgMatches, tool_name: &str) -> Result<(), String> {
+    let options = get_default_config(&matches, tool_name)?;
 
     let license_display_processor = LicenseDisplayProcessor::new();
     let res = license_display_processor.process(&options);

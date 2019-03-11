@@ -2,6 +2,8 @@
 // It should be replaced by &str where possible.
 #[derive(Debug)]
 pub struct Config {
+    pub tool_name: String,
+
     // Display license of this software or its dependencies.
     pub licenses: Vec<SelectedLicenses>,
 
