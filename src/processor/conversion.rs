@@ -108,6 +108,8 @@ impl<'a> ProcessWithConfig<Result<(), String>> for ConversionProcessor<'a> {
 mod tests {
     use std::io::Read;
 
+    use crate::config::ConfigItem;
+
     use crate::config::{
         Config, FormatEncodingSettings, JPEGEncodingSettings, PNMEncodingSettings,
     };
@@ -122,7 +124,7 @@ mod tests {
 
     fn setup_dummy_config(output: &str) -> Config {
         Config {
-            tool_name: env!("CARGO_PKG_NAME").to_string(),
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,
@@ -134,6 +136,11 @@ mod tests {
             },
 
             output: setup_output_path(output).to_str().map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         }
     }
 

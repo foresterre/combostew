@@ -1,7 +1,8 @@
 use clap::{App, Arg, ArgMatches};
 
 use crate::config::{
-    Config, FormatEncodingSettings, JPEGEncodingSettings, PNMEncodingSettings, SelectedLicenses,
+    Config, ConfigItem, FormatEncodingSettings, JPEGEncodingSettings, PNMEncodingSettings,
+    SelectedLicenses,
 };
 use crate::io::{export, import};
 use crate::operations::Operation;
@@ -14,6 +15,8 @@ pub mod config;
 pub mod io;
 pub mod operations;
 pub mod processor;
+
+pub use image;
 
 pub fn get_app_skeleton(name: &str) -> App<'static, 'static> {
     App::new(name)
@@ -63,9 +66,13 @@ pub fn get_app_skeleton(name: &str) -> App<'static, 'static> {
 
 // Here any option should not panic when invalid.
 // Previously, it was allowed to panic within Config, but this is no longer the case.
-pub fn get_default_config(matches: &ArgMatches, tool_name: &str) -> Result<Config, String> {
+pub fn get_default_config(
+    matches: &ArgMatches,
+    tool_name: &'static str,
+    app_config: Vec<ConfigItem>,
+) -> Result<Config, String> {
     let res = Config {
-        tool_name: tool_name.to_string(),
+        tool_name,
         licenses: match (
             matches.is_present("license"),
             matches.is_present("dep_licenses"),
@@ -96,7 +103,13 @@ pub fn get_default_config(matches: &ArgMatches, tool_name: &str) -> Result<Confi
             pnm_settings: PNMEncodingSettings::new(matches.is_present("pnm_encoding_ascii")),
         },
 
-        output: matches.value_of("output").map(|v| v.into()),
+        // TODO: output_file is sic specific
+        output: matches
+            .value_of("output")
+            .or_else(|| matches.value_of("output_file"))
+            .map(|v| v.into()),
+
+        application_specific: app_config,
     };
 
     Ok(res)
@@ -105,9 +118,11 @@ pub fn get_default_config(matches: &ArgMatches, tool_name: &str) -> Result<Confi
 /// The run function runs the sic application, taking the matches found by Clap.
 /// This function is separated from the main() function so that it can be used more easily in test cases.
 /// This function consumes the matches provided.
-pub fn run(matches: &ArgMatches, operation: Option<Operation>, tool_name: &str) -> Result<(), String> {
-    let options = get_default_config(&matches, tool_name)?;
-
+pub fn run(
+    matches: &ArgMatches,
+    operations: &mut [Operation],
+    options: &Config,
+) -> Result<(), String> {
     if options.output.is_none() {
         eprintln!(
             "The default output format is BMP. Use --output-format <FORMAT> to specify \
@@ -118,17 +133,26 @@ pub fn run(matches: &ArgMatches, operation: Option<Operation>, tool_name: &str) 
     let license_display_processor = LicenseDisplayProcessor::new();
     license_display_processor.process(&options);
 
-    let mut img = import(matches.value_of("input"))?;
+    // TODO: This should be reworked, since "input_file" is sic specific.
+    let mut img = import(
+        matches
+            .value_of("input")
+            .or_else(|| matches.value_of("input_file")),
+    )?;
 
-    let mut image_operations_processor = ImageOperationsProcessor::new(&mut img, operation);
+    let mut image_operations_processor = ImageOperationsProcessor::new(&mut img, operations);
     image_operations_processor.process_mut(&options)?;
 
     let format_decider = EncodingFormatDecider::new();
     export(&img, &format_decider, &options)
 }
 
-pub fn run_display_licenses(matches: &ArgMatches, tool_name: &str) -> Result<(), String> {
-    let options = get_default_config(&matches, tool_name)?;
+pub fn run_display_licenses(
+    matches: &ArgMatches,
+    tool_name: &'static str,
+    app_config: Vec<ConfigItem>,
+) -> Result<(), String> {
+    let options = get_default_config(&matches, tool_name, app_config)?;
 
     let license_display_processor = LicenseDisplayProcessor::new();
     let res = license_display_processor.process(&options);

@@ -83,7 +83,7 @@ impl EncodingFormatDecider {
                 image::pnm::PNMSubtype::ArbitraryMap,
             )),
             _ => Err(format!(
-                "Unable to determine a supported image format type, input: {}.",
+                "No supported image output format was found, input: {}.",
                 identifier
             )),
         }
@@ -118,7 +118,7 @@ impl ProcessWithConfig<Result<image::ImageOutputFormat, String>> for EncodingFor
 #[cfg(test)]
 mod tests {
     use crate::config::{
-        Config, FormatEncodingSettings, JPEGEncodingSettings, PNMEncodingSettings,
+        Config, ConfigItem, FormatEncodingSettings, JPEGEncodingSettings, PNMEncodingSettings,
     };
     use crate::processor::mod_test_includes::*;
 
@@ -154,7 +154,7 @@ mod tests {
         pnm_ascii: bool,
     ) -> Config {
         Config {
-            tool_name: env!("CARGO_PKG_NAME").to_string(),
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: force_format,
             disable_automatic_color_type_adjustment: false,
@@ -168,6 +168,11 @@ mod tests {
             output: setup_output_path(&format!("{}.{}", output, ext))
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         }
     }
 
@@ -312,7 +317,7 @@ mod tests {
     #[test]
     fn test_jpeg_custom_quality() {
         let jpeg_conf = Config {
-            tool_name: env!("CARGO_PKG_NAME").to_string(),
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,
@@ -326,6 +331,11 @@ mod tests {
             output: setup_output_path("encoding_processing_jpeg_quality_valid.jpg")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
         let conversion_processor = EncodingFormatDecider::new();
@@ -340,7 +350,7 @@ mod tests {
     #[test]
     fn test_output_unsupported_extension() {
         let jpeg_conf = Config {
-            tool_name: env!("CARGO_PKG_NAME").to_string(),
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,
@@ -353,6 +363,11 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid.😉")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
         let conversion_processor = EncodingFormatDecider::new();
@@ -365,7 +380,7 @@ mod tests {
     #[test]
     fn test_output_no_ext_or_ff() {
         let jpeg_conf = Config {
-            tool_name: env!("CARGO_PKG_NAME").to_string(),
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,
@@ -378,6 +393,11 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid.")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
         let conversion_processor = EncodingFormatDecider::new();
@@ -390,7 +410,7 @@ mod tests {
     #[test]
     fn test_output_unsupported_ff_with_ext() {
         let jpeg_conf = Config {
-            tool_name: env!("CARGO_PKG_NAME").to_string(),
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: Some("OiOi".into()), // unsupported format
             disable_automatic_color_type_adjustment: false,
@@ -403,6 +423,11 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid.jpg")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
         let conversion_processor = EncodingFormatDecider::new();
@@ -415,7 +440,7 @@ mod tests {
     #[test]
     fn test_output_unsupported_ff_without_ext() {
         let jpeg_conf = Config {
-            tool_name: env!("CARGO_PKG_NAME").to_string(),
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: Some("OiOi".into()), // unsupported format
             disable_automatic_color_type_adjustment: false,
@@ -428,6 +453,11 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
         let conversion_processor = EncodingFormatDecider::new();
