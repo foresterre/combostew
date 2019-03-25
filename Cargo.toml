@@ -12,7 +12,7 @@ exclude = [
     ".vscode/*",
     "*.iml",
 ]
-keywords = ["image", "converter", "cli", "front-end", "image-cli"]
+keywords = ["image", "operations", "intermediate-layer"]
 categories = ["multimedia::images", "command-line-utilities"]
 
 [features]
@@ -25,6 +25,3 @@ image = "0.21.0"
 [lib]
 name = "combostew"
 path = "src/lib.rs"
-
-[profile.release]
-panic = "abort"
