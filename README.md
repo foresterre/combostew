@@ -5,7 +5,7 @@ Combostew is an intermediate layer between the 'image' crate used as back-end by
 
 <br>
 
-_crates.io: [Stew](https://crates.io/crates/combostew)_
+_crates.io: [Combostew](https://crates.io/crates/combostew)_
 
 # Components
 
