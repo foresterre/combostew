@@ -17,9 +17,9 @@ impl EncodingFormatDecider {
                 let extension = path.extension();
 
                 extension
-                    .and_then(|out| out.to_str())
+                    .and_then(std::ffi::OsStr::to_str)
                     .ok_or_else(|| "No extension was found".into())
-                    .map(|v| v.to_lowercase())
+                    .map( str::to_lowercase)
             }
             None => Err("No valid output path found (type: efd/ext)".into()),
         }

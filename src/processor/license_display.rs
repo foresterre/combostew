@@ -6,14 +6,10 @@ use crate::processor::ProcessWithConfig;
 const SIC_LICENSE: &str = include_str!("../../LICENSE");
 const DEP_LICENSES: &str = include_str!("../../LICENSES_DEPENDENCIES");
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LicenseDisplayProcessor;
 
 impl LicenseDisplayProcessor {
-    pub fn new() -> LicenseDisplayProcessor {
-        LicenseDisplayProcessor {}
-    }
-
     fn print_licenses(slice: &[SelectedLicenses], tool_name: &str) {
         for item in slice {
             match item {

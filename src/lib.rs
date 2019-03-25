@@ -130,7 +130,7 @@ pub fn run(
         );
     }
 
-    let license_display_processor = LicenseDisplayProcessor::new();
+    let license_display_processor = LicenseDisplayProcessor::default();
     license_display_processor.process(&options);
 
     // TODO: This should be reworked, since "input_file" is sic specific.
@@ -154,7 +154,9 @@ pub fn run_display_licenses(
 ) -> Result<(), String> {
     let options = get_default_config(&matches, tool_name, app_config)?;
 
-    let license_display_processor = LicenseDisplayProcessor::new();
-    let res = license_display_processor.process(&options);
-    Ok(res)
+    let license_display_processor = LicenseDisplayProcessor::default();
+
+    license_display_processor.process(&options);
+
+    Ok(())
 }
