@@ -5,14 +5,10 @@ use crate::processor::ProcessWithConfig;
 
 const DEFAULT_PIPED_OUTPUT_FORMAT: image::ImageOutputFormat = image::ImageOutputFormat::BMP;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct EncodingFormatDecider;
 
 impl EncodingFormatDecider {
-    pub fn new() -> EncodingFormatDecider {
-        EncodingFormatDecider {}
-    }
-
     // return: Ok: valid extension, err: invalid i.e. no extension or no valid output path
     fn get_output_extension(config: &Config) -> Result<String, String> {
         match &config.output {
@@ -21,9 +17,9 @@ impl EncodingFormatDecider {
                 let extension = path.extension();
 
                 extension
-                    .and_then(|out| out.to_str())
+                    .and_then(std::ffi::OsStr::to_str)
                     .ok_or_else(|| "No extension was found".into())
-                    .map(|v| v.to_lowercase())
+                    .map(str::to_lowercase)
             }
             None => Err("No valid output path found (type: efd/ext)".into()),
         }
@@ -83,7 +79,7 @@ impl EncodingFormatDecider {
                 image::pnm::PNMSubtype::ArbitraryMap,
             )),
             _ => Err(format!(
-                "Unable to determine a supported image format type, input: {}.",
+                "No supported image output format was found, input: {}.",
                 identifier
             )),
         }
@@ -118,7 +114,7 @@ impl ProcessWithConfig<Result<image::ImageOutputFormat, String>> for EncodingFor
 #[cfg(test)]
 mod tests {
     use crate::config::{
-        Config, FormatEncodingSettings, JPEGEncodingSettings, PNMEncodingSettings,
+        Config, ConfigItem, FormatEncodingSettings, JPEGEncodingSettings, PNMEncodingSettings,
     };
     use crate::processor::mod_test_includes::*;
 
@@ -154,6 +150,7 @@ mod tests {
         pnm_ascii: bool,
     ) -> Config {
         Config {
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: force_format,
             disable_automatic_color_type_adjustment: false,
@@ -167,6 +164,11 @@ mod tests {
             output: setup_output_path(&format!("{}.{}", output, ext))
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         }
     }
 
@@ -175,7 +177,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, ext, None, false);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -188,7 +190,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "", Some(String::from(format)), false);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -222,7 +224,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "jpg", Some(String::from("png")), false);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -236,7 +238,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "pbm", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -255,7 +257,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "pgm", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -274,7 +276,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "ppm", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -297,7 +299,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "pam", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -311,6 +313,7 @@ mod tests {
     #[test]
     fn test_jpeg_custom_quality() {
         let jpeg_conf = Config {
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,
@@ -324,9 +327,14 @@ mod tests {
             output: setup_output_path("encoding_processing_jpeg_quality_valid.jpg")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&jpeg_conf)
             .expect("Failed to compute image format.");
@@ -338,6 +346,7 @@ mod tests {
     #[test]
     fn test_output_unsupported_extension() {
         let jpeg_conf = Config {
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,
@@ -350,9 +359,14 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid.😉")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Failed to compute image format.");
@@ -362,6 +376,7 @@ mod tests {
     #[test]
     fn test_output_no_ext_or_ff() {
         let jpeg_conf = Config {
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: None,
             disable_automatic_color_type_adjustment: false,
@@ -374,9 +389,14 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid.")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Failed to compute image format.");
@@ -386,6 +406,7 @@ mod tests {
     #[test]
     fn test_output_unsupported_ff_with_ext() {
         let jpeg_conf = Config {
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: Some("OiOi".into()), // unsupported format
             disable_automatic_color_type_adjustment: false,
@@ -398,9 +419,14 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid.jpg")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Unable to save file to the test computer");
@@ -410,6 +436,7 @@ mod tests {
     #[test]
     fn test_output_unsupported_ff_without_ext() {
         let jpeg_conf = Config {
+            tool_name: env!("CARGO_PKG_NAME"),
             licenses: vec![],
             forced_output_format: Some("OiOi".into()), // unsupported format
             disable_automatic_color_type_adjustment: false,
@@ -422,9 +449,14 @@ mod tests {
             output: setup_output_path("encoding_processing_invalid")
                 .to_str()
                 .map(|v| v.into()),
+
+            application_specific: vec![
+                ConfigItem::OptionStringItem(None),
+                ConfigItem::OptionStringItem(None),
+            ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Unable to save file to the test computer");

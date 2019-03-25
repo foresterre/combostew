@@ -6,19 +6,15 @@ use crate::processor::ProcessWithConfig;
 const SIC_LICENSE: &str = include_str!("../../LICENSE");
 const DEP_LICENSES: &str = include_str!("../../LICENSES_DEPENDENCIES");
 
-#[derive(Debug)]
-pub(crate) struct LicenseDisplayProcessor;
+#[derive(Debug, Default)]
+pub struct LicenseDisplayProcessor;
 
 impl LicenseDisplayProcessor {
-    pub fn new() -> LicenseDisplayProcessor {
-        LicenseDisplayProcessor {}
-    }
-
-    fn print_licenses(slice: &[SelectedLicenses]) {
+    fn print_licenses(slice: &[SelectedLicenses], tool_name: &str) {
         for item in slice {
             match item {
                 SelectedLicenses::ThisSoftware => {
-                    println!("Stew image tools license:\n\n{}\n\n", SIC_LICENSE);
+                    println!("{} image tools license:\n\n{}\n\n", tool_name, SIC_LICENSE);
                 }
                 SelectedLicenses::Dependencies => println!("{}", DEP_LICENSES),
             };
@@ -32,6 +28,6 @@ impl LicenseDisplayProcessor {
 
 impl ProcessWithConfig<()> for LicenseDisplayProcessor {
     fn process(&self, config: &Config) {
-        LicenseDisplayProcessor::print_licenses(&config.licenses);
+        LicenseDisplayProcessor::print_licenses(&config.licenses, &config.tool_name);
     }
 }

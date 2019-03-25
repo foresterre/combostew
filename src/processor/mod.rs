@@ -1,9 +1,9 @@
 use crate::config::Config;
 
-pub(crate) mod conversion;
-pub(crate) mod encoding_format;
-pub(crate) mod image_operations;
-pub(crate) mod license_display;
+pub mod conversion;
+pub mod encoding_format;
+pub mod image_operations;
+pub mod license_display;
 
 #[cfg(test)]
 pub(in crate::processor) mod mod_test_includes;

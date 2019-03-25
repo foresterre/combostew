@@ -2,6 +2,8 @@
 // It should be replaced by &str where possible.
 #[derive(Debug)]
 pub struct Config {
+    pub tool_name: &'static str,
+
     // Display license of this software or its dependencies.
     pub licenses: Vec<SelectedLicenses>,
 
@@ -15,6 +17,15 @@ pub struct Config {
 
     // output path
     pub output: Option<String>,
+
+    // Application specific settings. Only supports enum items defined in `ConfigItem`.
+    pub application_specific: Vec<ConfigItem>,
+}
+
+// TODO{}: This is suboptimal, since depending crates can't define their own types...
+#[derive(Debug)]
+pub enum ConfigItem {
+    OptionStringItem(Option<String>),
 }
 
 #[derive(Debug)]

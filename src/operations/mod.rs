@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod mod_test_includes;
 
-pub(crate) mod transformations;
+pub mod transformations;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operation {
