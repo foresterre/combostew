@@ -177,7 +177,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, ext, None, false);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -190,7 +190,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "", Some(String::from(format)), false);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -224,7 +224,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "jpg", Some(String::from("png")), false);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -238,7 +238,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "pbm", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -257,7 +257,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "pgm", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -276,7 +276,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "ppm", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -299,7 +299,7 @@ mod tests {
 
         let settings = setup_dummy_config(output_name, "pam", None, true);
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&settings)
             .expect("Failed to compute image format.");
@@ -334,7 +334,7 @@ mod tests {
             ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let result = conversion_processor
             .process(&jpeg_conf)
             .expect("Failed to compute image format.");
@@ -366,7 +366,7 @@ mod tests {
             ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Failed to compute image format.");
@@ -396,7 +396,7 @@ mod tests {
             ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Failed to compute image format.");
@@ -426,7 +426,7 @@ mod tests {
             ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Unable to save file to the test computer");
@@ -456,7 +456,7 @@ mod tests {
             ],
         };
 
-        let conversion_processor = EncodingFormatDecider::new();
+        let conversion_processor = EncodingFormatDecider::default();
         let _ = conversion_processor
             .process(&jpeg_conf)
             .expect("Unable to save file to the test computer");
