@@ -52,13 +52,13 @@ pub fn get_app_skeleton(name: &str) -> App<'static, 'static> {
             .short("i")
             .value_name("FILE_INPUT")
             .takes_value(true)
-            .help("Input of qualified (TBD) image file. Use this file option XOR pipe from stdin."))
+            .help("Input image path. When using this option, input piped from stdin will be ignored."))
         .arg(Arg::with_name("output")
             .long("output")
             .short("o")
             .value_name("FILE_OUTPUT")
             .takes_value(true)
-            .help("Output of qualified (TBD) image file. Use this file option XOR pipe to stdout."))
+            .help("Output image path. When using this option, output won't be piped to stdout."))
 }
 
 // Here any option should not panic when invalid.
