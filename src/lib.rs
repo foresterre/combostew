@@ -130,9 +130,6 @@ pub fn run(
         );
     }
 
-    let license_display_processor = LicenseDisplayProcessor::default();
-    license_display_processor.process(&options);
-
     // TODO: This should be reworked, since "input_file" is sic specific.
     let mut img = import(
         matches
