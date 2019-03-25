@@ -5,14 +5,10 @@ use crate::processor::ProcessWithConfig;
 
 const DEFAULT_PIPED_OUTPUT_FORMAT: image::ImageOutputFormat = image::ImageOutputFormat::BMP;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct EncodingFormatDecider;
 
 impl EncodingFormatDecider {
-    pub fn new() -> EncodingFormatDecider {
-        EncodingFormatDecider {}
-    }
-
     // return: Ok: valid extension, err: invalid i.e. no extension or no valid output path
     fn get_output_extension(config: &Config) -> Result<String, String> {
         match &config.output {

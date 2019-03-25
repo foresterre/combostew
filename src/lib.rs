@@ -143,7 +143,7 @@ pub fn run(
     let mut image_operations_processor = ImageOperationsProcessor::new(&mut img, operations);
     image_operations_processor.process_mut(&options)?;
 
-    let format_decider = EncodingFormatDecider::new();
+    let format_decider = EncodingFormatDecider::default();
     export(&img, &format_decider, &options)
 }
 
