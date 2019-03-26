@@ -6,6 +6,11 @@ use crate::processor::ProcessWithConfig;
 const SIC_LICENSE: &str = include_str!("../../LICENSE");
 const DEP_LICENSES: &str = include_str!("../../LICENSES_DEPENDENCIES");
 
+#[cfg(not(windows))]
+const NEW_LINE: &'static str = "\n";
+#[cfg(windows)]
+const NEW_LINE: &'static str = "\r\n";
+
 #[derive(Debug, Default)]
 pub struct LicenseDisplayProcessor;
 
@@ -14,7 +19,9 @@ impl LicenseDisplayProcessor {
         for item in slice {
             match item {
                 SelectedLicenses::ThisSoftware => {
-                    println!("{} image tools license:\n\n{}\n\n", tool_name, SIC_LICENSE);
+                    println!("{} image tools license:{}{}{}{}{}",
+                             tool_name,
+                             NEW_LINE, NEW_LINE, SIC_LICENSE, NEW_LINE, NEW_LINE);
                 }
                 SelectedLicenses::Dependencies => println!("{}", DEP_LICENSES),
             };
@@ -31,3 +38,4 @@ impl ProcessWithConfig<()> for LicenseDisplayProcessor {
         LicenseDisplayProcessor::print_licenses(&config.licenses, &config.tool_name);
     }
 }
+
