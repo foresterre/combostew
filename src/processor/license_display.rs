@@ -19,9 +19,10 @@ impl LicenseDisplayProcessor {
         for item in slice {
             match item {
                 SelectedLicenses::ThisSoftware => {
-                    println!("{} image tools license:{}{}{}{}{}",
-                             tool_name,
-                             NEW_LINE, NEW_LINE, SIC_LICENSE, NEW_LINE, NEW_LINE);
+                    println!(
+                        "{} image tools license:{}{}{}{}{}",
+                        tool_name, NEW_LINE, NEW_LINE, SIC_LICENSE, NEW_LINE, NEW_LINE
+                    );
                 }
                 SelectedLicenses::Dependencies => println!("{}", DEP_LICENSES),
             };
@@ -38,4 +39,3 @@ impl ProcessWithConfig<()> for LicenseDisplayProcessor {
         LicenseDisplayProcessor::print_licenses(&config.licenses, &config.tool_name);
     }
 }
-
