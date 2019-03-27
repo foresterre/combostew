@@ -19,6 +19,15 @@ pub fn import<P: AsRef<Path>>(maybe_path: Option<P>) -> Result<image::DynamicIma
 //  Then we can display an error and the help page instead if the 'Complete' event has been received,
 //  but the buffer is empty.
 fn import_from_input_stream_sync() -> Result<image::DynamicImage, String> {
+    if cfg!(windows) {
+        eprintln!(
+            "Warning: You are using stdin as input method on the \
+             Windows platform. Support for stdin input on Windows is currently limited. \
+             It would be advisable to use input files instead (see `--help` for more information). \n\
+             Issue tracked at: https://github.com/foresterre/combostew/issues/6\n"
+        );
+    }
+
     // We don't known the input size yet, so we allocate.
     let mut buffer = Vec::new();
 
@@ -36,9 +45,7 @@ fn import_from_input_stream_sync() -> Result<image::DynamicImage, String> {
     })?;
 
     if buffer.is_empty() {
-        return Err(
-            "Stdin was empty. To display the help page, use the `--help` flag.".to_string(),
-        );
+        return Err("Stdin was empty. To display the help page, use the `--help` flag.".to_string());
     }
 
     // Uses stderr because stdout is used to redirect the output image if no file is defined.
