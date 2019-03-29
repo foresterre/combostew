@@ -1,3 +1,4 @@
+use std::env::args;
 use std::io::stdin;
 use std::io::Read;
 use std::path::Path;
@@ -20,11 +21,16 @@ pub fn import<P: AsRef<Path>>(maybe_path: Option<P>) -> Result<image::DynamicIma
 //  but the buffer is empty.
 fn import_from_input_stream_sync() -> Result<image::DynamicImage, String> {
     if cfg!(windows) {
+        let program_name = args().nth(0).unwrap_or_default();
+
         eprintln!(
             "Warning: You are using stdin as input method on the \
-             Windows platform. Support for stdin input on Windows is currently limited. \
-             It would be advisable to use input files instead (see `--help` for more information). \n\
-             Issue tracked at: https://github.com/foresterre/combostew/issues/6\n"
+             Windows platform. If you use PowerShell and the program errors with 'Unsupported image format', \
+             PowerShell assumed the binary data was text. You can either use input files instead \
+             (run {} with '--help' for more information), \
+             or run the program from 'cmd.exe' (for example: \
+             'type <INPUT_FILE> | {} -o <OUTPUT_FILE> <ARGS>').\n",
+            program_name, program_name
         );
     }
 
