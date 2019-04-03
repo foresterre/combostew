@@ -51,7 +51,9 @@ fn import_from_input_stream_sync() -> Result<image::DynamicImage, String> {
     })?;
 
     if buffer.is_empty() {
-        return Err("Stdin was empty. To display the help page, use the `--help` flag.".to_string());
+        return Err(
+            "Stdin was empty. To display the help page, use the `--help` flag.".to_string(),
+        );
     }
 
     // Uses stderr because stdout is used to redirect the output image if no file is defined.
