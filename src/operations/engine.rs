@@ -5,13 +5,10 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
 
-///
-
 /// This version of the operations module will use an AST like structure.
 /// Instead of evaluating a program, we apply 'a language' on an image.
 ///
 /// Checklist:
-/// - TODO: implement ResizeSamplingFilter logic
 /// - TODO: replace transformations with v2/'engine'
 /// - think about naming, especially of the module
 
@@ -24,6 +21,15 @@ pub enum EnvironmentOption {
     ResizeSamplingFilter(FilterTypeWrap),
 }
 
+impl EnvironmentOption {
+    pub fn resize_sampling_filter(&self) -> Option<FilterTypeWrap> {
+        match self {
+            EnvironmentOption::ResizeSamplingFilter(k) => Some(k.clone()),
+            // _ => None, // not needed right now, but will be needed when adding other options.
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EnvironmentFlag {
     // later
@@ -33,6 +39,22 @@ pub enum EnvironmentFlag {
 pub enum EnvironmentItem {
     Opt(EnvironmentOption),
     Flag(EnvironmentFlag),
+}
+
+impl EnvironmentItem {
+    pub fn opt(&self) -> Option<EnvironmentOption> {
+        match &self {
+            EnvironmentItem::Opt(k) => Some(k.clone()),
+            EnvironmentItem::Flag(_) => None,
+        }
+    }
+
+    pub fn flag(&self) -> Option<EnvironmentFlag> {
+        match &self {
+            EnvironmentItem::Flag(k) => Some(k.clone()),
+            EnvironmentItem::Opt(_) => None,
+        }
+    }
 }
 
 impl EnvironmentKey for EnvironmentItem {
@@ -59,6 +81,21 @@ impl Default for Environment {
     }
 }
 
+impl Environment {
+    pub fn insert_or_update(&mut self, item: EnvironmentItem) {
+        let key = item.key();
+        if self.store.contains_key(key) {
+            *self.store.get_mut(key).unwrap() = item;
+        } else {
+            self.store.insert(key, item);
+        }
+    }
+
+    pub fn get(&mut self, key: &'static str) -> Option<&EnvironmentItem> {
+        self.store.get(key)
+    }
+}
+
 pub enum Statement {
     Operation(Operation),
     RegisterEnvironmentItem(EnvironmentItem),
@@ -79,7 +116,7 @@ impl ImageEngine {
         }
     }
 
-    pub fn ignite(&mut self, statements: Program) -> Result<DynamicImage, Box<dyn Error>> {
+    pub fn ignite(&mut self, statements: Program) -> Result<&DynamicImage, Box<dyn Error>> {
         for stmt in statements {
             match self.process_statement(stmt) {
                 Ok(_) => continue,
@@ -87,7 +124,7 @@ impl ImageEngine {
             }
         }
 
-        Ok(*self.image.clone())
+        Ok(&self.image)
     }
 
     pub fn process_statement(&mut self, statement: Statement) -> Result<(), Box<dyn Error>> {
@@ -150,9 +187,22 @@ impl ImageEngine {
                 Ok(())
             }
             Operation::Resize(new_x, new_y) => {
-                *self.image = self
-                    .image
-                    .resize_exact(new_x, new_y, image::FilterType::Gaussian);
+                const DEFAULT_RESIZE_FILTER: image::FilterType = image::FilterType::Gaussian;
+
+                let filter = self
+                    .environment
+                    .get("Resize_SamplingFilter")
+                    .and_then(|item| {
+                        item.opt().and_then(|opt| {
+                            opt.resize_sampling_filter().map(|filter_wrap| {
+                                println!("resize filter: {:?}", filter_wrap);
+                                image::FilterType::from(filter_wrap)
+                            })
+                        })
+                    })
+                    .unwrap_or(DEFAULT_RESIZE_FILTER);
+
+                *self.image = self.image.resize_exact(new_x, new_y, filter);
                 Ok(())
             }
             Operation::Rotate90 => {
@@ -175,12 +225,7 @@ impl ImageEngine {
     }
 
     pub fn process_register_env(&mut self, item: EnvironmentItem) -> Result<(), Box<dyn Error>> {
-        let key = item.key();
-        if self.environment.store.contains_key(key) {
-            *self.environment.store.get_mut(key).unwrap() = item;
-        } else {
-            self.environment.store.insert(key, item);
-        }
+        self.environment.insert_or_update(item);
 
         // todo{}: remove
         println!("env: {:?}", self.environment.store);
@@ -232,31 +277,31 @@ impl Verify {
 // Wrapper for image::FilterType.
 // Does only exists, because image::FilterType does not implement PartialEq and Debug.
 pub enum FilterTypeWrap {
-    It(image::FilterType),
+    Inner(image::FilterType),
 }
 
 impl PartialEq<FilterTypeWrap> for FilterTypeWrap {
     fn eq(&self, other: &FilterTypeWrap) -> bool {
         match (self, other) {
             (
-                FilterTypeWrap::It(image::FilterType::CatmullRom),
-                FilterTypeWrap::It(image::FilterType::CatmullRom),
+                FilterTypeWrap::Inner(image::FilterType::CatmullRom),
+                FilterTypeWrap::Inner(image::FilterType::CatmullRom),
             ) => true,
             (
-                FilterTypeWrap::It(image::FilterType::Gaussian),
-                FilterTypeWrap::It(image::FilterType::Gaussian),
+                FilterTypeWrap::Inner(image::FilterType::Gaussian),
+                FilterTypeWrap::Inner(image::FilterType::Gaussian),
             ) => true,
             (
-                FilterTypeWrap::It(image::FilterType::Lanczos3),
-                FilterTypeWrap::It(image::FilterType::Lanczos3),
+                FilterTypeWrap::Inner(image::FilterType::Lanczos3),
+                FilterTypeWrap::Inner(image::FilterType::Lanczos3),
             ) => true,
             (
-                FilterTypeWrap::It(image::FilterType::Nearest),
-                FilterTypeWrap::It(image::FilterType::Nearest),
+                FilterTypeWrap::Inner(image::FilterType::Nearest),
+                FilterTypeWrap::Inner(image::FilterType::Nearest),
             ) => true,
             (
-                FilterTypeWrap::It(image::FilterType::Triangle),
-                FilterTypeWrap::It(image::FilterType::Triangle),
+                FilterTypeWrap::Inner(image::FilterType::Triangle),
+                FilterTypeWrap::Inner(image::FilterType::Triangle),
             ) => true,
             _ => false,
         }
@@ -266,7 +311,7 @@ impl PartialEq<FilterTypeWrap> for FilterTypeWrap {
 impl Clone for FilterTypeWrap {
     fn clone(&self) -> Self {
         match self {
-            FilterTypeWrap::It(a) => FilterTypeWrap::It(*a),
+            FilterTypeWrap::Inner(a) => FilterTypeWrap::Inner(*a),
         }
     }
 }
@@ -276,14 +321,32 @@ impl Eq for FilterTypeWrap {}
 impl Debug for FilterTypeWrap {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         let msg = match self {
-            FilterTypeWrap::It(image::FilterType::CatmullRom) => "image::FilterType::CatmullRom",
-            FilterTypeWrap::It(image::FilterType::Gaussian) => "image::FilterType::Gaussian",
-            FilterTypeWrap::It(image::FilterType::Lanczos3) => "image::FilterType::Lanczos3",
-            FilterTypeWrap::It(image::FilterType::Nearest) => "image::FilterType::Nearest",
-            FilterTypeWrap::It(image::FilterType::Triangle) => "image::FilterType::Triangle",
+            FilterTypeWrap::Inner(image::FilterType::CatmullRom) => {
+                "image::FilterType::CatmullRom (Wrapper)"
+            }
+            FilterTypeWrap::Inner(image::FilterType::Gaussian) => {
+                "image::FilterType::Gaussian (Wrapper)"
+            }
+            FilterTypeWrap::Inner(image::FilterType::Lanczos3) => {
+                "image::FilterType::Lanczos3 (Wrapper)"
+            }
+            FilterTypeWrap::Inner(image::FilterType::Nearest) => {
+                "image::FilterType::Nearest (Wrapper)"
+            }
+            FilterTypeWrap::Inner(image::FilterType::Triangle) => {
+                "image::FilterType::Triangle (Wrapper)"
+            }
         };
 
         f.write_str(msg)
+    }
+}
+
+impl From<FilterTypeWrap> for image::FilterType {
+    fn from(wrap: FilterTypeWrap) -> Self {
+        match wrap {
+            FilterTypeWrap::Inner(w) => w,
+        }
     }
 }
 
@@ -294,7 +357,7 @@ mod tests {
     use image::GenericImageView;
 
     #[test]
-    fn test_in_progress2() {
+    fn resize_with_sampling_filter_nearest() {
         let img: DynamicImage = setup_default_test_image();
 
         let mut engine = ImageEngine::new(img);
@@ -303,20 +366,24 @@ mod tests {
             Statement::Operation(Operation::Brighten(10)),
             Statement::Operation(Operation::HueRotate(170)),
             Statement::RegisterEnvironmentItem(EnvironmentItem::Opt(
-                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::It(
+                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::Inner(
                     image::FilterType::Triangle,
                 )),
             )),
             Statement::RegisterEnvironmentItem(EnvironmentItem::Opt(
-                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::It(
+                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::Inner(
                     image::FilterType::Nearest,
                 )),
             )),
+            Statement::Operation(Operation::Resize(100, 100)),
         ]);
 
         assert!(done.is_ok());
 
-        output_test_image_for_manual_inspection(&done.unwrap(), "target/ooo.png")
+        output_test_image_for_manual_inspection(
+            &done.unwrap(),
+            "target/test_resize_sampling_filter_nearest.png",
+        )
     }
 
     #[test]
