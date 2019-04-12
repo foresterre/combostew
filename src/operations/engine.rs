@@ -114,15 +114,9 @@ impl ImageEngine {
             Operation::Crop(lx, ly, rx, ry) => {
                 // 1. verify that the top left anchor is smaller than the bottom right anchor
                 // 2. verify that the selection is within the bounds of the image
-                Verify::verify_crop_selection(lx, ly, rx, ry)
+                Verify::crop_selection_box_can_exist(lx, ly, rx, ry)
                     .and_then(|_| {
-                        Verify::verify_crop_selection_within_image_bounds(
-                            &self.image,
-                            lx,
-                            ly,
-                            rx,
-                            ry,
-                        )
+                        Verify::crop_selection_within_image_bounds(&self.image, lx, ly, rx, ry)
                     })
                     .map(|_| {
                         *self.image = self.image.crop(lx, ly, rx - lx, ry - ly);
@@ -198,7 +192,12 @@ impl ImageEngine {
 struct Verify;
 
 impl Verify {
-    fn verify_crop_selection(lx: u32, ly: u32, rx: u32, ry: u32) -> Result<(), Box<dyn Error>> {
+    fn crop_selection_box_can_exist(
+        lx: u32,
+        ly: u32,
+        rx: u32,
+        ry: u32,
+    ) -> Result<(), Box<dyn Error>> {
         if (rx <= lx) || (ry <= ly) {
             Err(format!(
                 "Operation: crop -- Top selection coordinates are smaller than bottom selection coordinates. \
@@ -210,7 +209,7 @@ impl Verify {
         }
     }
 
-    fn verify_crop_selection_within_image_bounds(
+    fn crop_selection_within_image_bounds(
         image: &DynamicImage,
         lx: u32,
         ly: u32,
