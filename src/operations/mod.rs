@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod mod_test_includes;
 
+pub mod engine;
 pub mod transformations;
 
 #[derive(Debug, PartialEq, Clone)]

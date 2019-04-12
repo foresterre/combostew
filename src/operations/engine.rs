@@ -1,113 +1,333 @@
-use image::{DynamicImage, FilterType, GenericImageView};
+use crate::operations::Operation;
+use image::DynamicImage;
+use image::GenericImageView;
+use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::{Debug, Formatter};
 
-use super::Operation;
+///
 
-pub trait ApplyOperation<O, T, E> {
-    fn apply_operation(&self, operation: &O) -> Result<T, E>;
+/// This version of the operations module will use an AST like structure.
+/// Instead of evaluating a program, we apply 'a language' on an image.
+///
+/// Checklist:
+/// - TODO: implement ResizeSamplingFilter logic
+/// - TODO: replace transformations with v2/'engine'
+/// - think about naming, especially of the module
+
+trait EnvironmentKey {
+    fn key(&self) -> &'static str;
 }
 
-impl ApplyOperation<Operation, DynamicImage, String> for DynamicImage {
-    fn apply_operation(&self, operation: &Operation) -> Result<DynamicImage, String> {
-        match *operation {
-            Operation::Blur(sigma) => Ok(self.blur(sigma)),
-            Operation::Brighten(amount) => Ok(self.brighten(amount)),
-            Operation::Contrast(c) => Ok(self.adjust_contrast(c)),
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EnvironmentOption {
+    ResizeSamplingFilter(FilterTypeWrap),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EnvironmentFlag {
+    // later
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EnvironmentItem {
+    Opt(EnvironmentOption),
+    Flag(EnvironmentFlag),
+}
+
+impl EnvironmentKey for EnvironmentItem {
+    fn key(&self) -> &'static str {
+        match self {
+            EnvironmentItem::Opt(EnvironmentOption::ResizeSamplingFilter(_)) => {
+                "Resize_SamplingFilter"
+            }
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Environment {
+    store: HashMap<&'static str, EnvironmentItem>,
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self {
+            store: HashMap::new(),
+        }
+    }
+}
+
+pub enum Statement {
+    Operation(Operation),
+    RegisterEnvironmentItem(EnvironmentItem),
+}
+
+pub type Program = Vec<Statement>;
+
+pub struct ImageEngine {
+    environment: Box<Environment>,
+    image: Box<DynamicImage>,
+}
+
+impl ImageEngine {
+    pub fn new(image: DynamicImage) -> Self {
+        Self {
+            environment: Box::from(Environment::default()),
+            image: Box::from(image),
+        }
+    }
+
+    pub fn ignite(&mut self, statements: Program) -> Result<DynamicImage, Box<dyn Error>> {
+        for stmt in statements {
+            match self.process_statement(stmt) {
+                Ok(_) => continue,
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok(*self.image.clone())
+    }
+
+    pub fn process_statement(&mut self, statement: Statement) -> Result<(), Box<dyn Error>> {
+        match statement {
+            Statement::Operation(op) => self.process_operation(op),
+            Statement::RegisterEnvironmentItem(item) => self.process_register_env(item),
+        }
+    }
+
+    pub fn process_operation(&mut self, operation: Operation) -> Result<(), Box<dyn Error>> {
+        match operation {
+            Operation::Blur(sigma) => {
+                *self.image = self.image.blur(sigma);
+                Ok(())
+            }
+            Operation::Brighten(amount) => {
+                *self.image = self.image.brighten(amount);
+                Ok(())
+            }
+            Operation::Contrast(c) => {
+                *self.image = self.image.adjust_contrast(c);
+                Ok(())
+            }
             Operation::Crop(lx, ly, rx, ry) => {
                 // 1. verify that the top left anchor is smaller than the bottom right anchor
                 // 2. verify that the selection is within the bounds of the image
-                verify_crop_selection(lx, ly, rx, ry)
-                    .and_then(|_| verify_crop_selection_within_image_bounds(&self, lx, ly, rx, ry))
+                Verify::verify_crop_selection(lx, ly, rx, ry)
+                    .and_then(|_| {
+                        Verify::verify_crop_selection_within_image_bounds(
+                            &self.image,
+                            lx,
+                            ly,
+                            rx,
+                            ry,
+                        )
+                    })
                     .map(|_| {
-                        let mut buffer = self.clone();
-                        buffer.crop(lx, ly, rx - lx, ry - ly)
+                        *self.image = self.image.crop(lx, ly, rx - lx, ry - ly);
                     })
             }
             // We need to ensure here that Filter3x3's `it` (&[f32]) has length 9.
             // Otherwise it will panic, see: https://docs.rs/image/0.19.0/src/image/dynimage.rs.html#349
             // This check already happens within the `parse` module.
-            Operation::Filter3x3(ref it) => Ok(self.filter3x3(it)),
-            Operation::FlipHorizontal => Ok(self.fliph()),
-            Operation::FlipVertical => Ok(self.flipv()),
-            Operation::GrayScale => Ok(self.grayscale()),
-            Operation::HueRotate(degree) => Ok(self.huerotate(degree)),
-            // TODO this is rather sub optimal with the double clone
+            Operation::Filter3x3(ref it) => {
+                *self.image = self.image.filter3x3(it);
+                Ok(())
+            }
+            Operation::FlipHorizontal => {
+                *self.image = self.image.fliph();
+                Ok(())
+            }
+            Operation::FlipVertical => {
+                *self.image = self.image.flipv();
+                Ok(())
+            }
+            Operation::GrayScale => {
+                *self.image = self.image.grayscale();
+                Ok(())
+            }
+            Operation::HueRotate(degree) => {
+                *self.image = self.image.huerotate(degree);
+                Ok(())
+            }
             Operation::Invert => {
-                let inverted = {
-                    let mut buffer = self.clone();
-                    buffer.invert();
-                    buffer
-                };
-
-                Ok(inverted)
+                self.image.invert();
+                Ok(())
             }
             Operation::Resize(new_x, new_y) => {
-                Ok(self.resize_exact(new_x, new_y, FilterType::Gaussian))
+                *self.image = self
+                    .image
+                    .resize_exact(new_x, new_y, image::FilterType::Gaussian);
+                Ok(())
             }
-            Operation::Rotate90 => Ok(self.rotate90()),
-            Operation::Rotate270 => Ok(self.rotate270()),
-            Operation::Rotate180 => Ok(self.rotate180()),
-            Operation::Unsharpen(sigma, threshold) => Ok(self.unsharpen(sigma, threshold)),
+            Operation::Rotate90 => {
+                *self.image = self.image.rotate90();
+                Ok(())
+            }
+            Operation::Rotate180 => {
+                *self.image = self.image.rotate180();
+                Ok(())
+            }
+            Operation::Rotate270 => {
+                *self.image = self.image.rotate270();
+                Ok(())
+            }
+            Operation::Unsharpen(sigma, threshold) => {
+                *self.image = self.image.unsharpen(sigma, threshold);
+                Ok(())
+            }
         }
     }
-}
 
-fn verify_crop_selection(lx: u32, ly: u32, rx: u32, ry: u32) -> Result<(), String> {
-    if (rx <= lx) || (ry <= ly) {
-        Err(format!(
-            "Operation: crop -- Top selection coordinates are smaller than bottom selection coordinates. \
-            Required top selection < bottom selection but given coordinates are: [top anchor: (x={}, y={}), bottom anchor: (x={}, y={})].",
-            lx, ly, rx, ry
-        ))
-    } else {
+    pub fn process_register_env(&mut self, item: EnvironmentItem) -> Result<(), Box<dyn Error>> {
+        let key = item.key();
+        if self.environment.store.contains_key(key) {
+            *self.environment.store.get_mut(key).unwrap() = item;
+        } else {
+            self.environment.store.insert(key, item);
+        }
+
+        // todo{}: remove
+        println!("env: {:?}", self.environment.store);
+
         Ok(())
     }
 }
 
-fn verify_crop_selection_within_image_bounds(
-    image: &DynamicImage,
-    lx: u32,
-    ly: u32,
-    rx: u32,
-    ry: u32,
-) -> Result<(), String> {
-    let (dim_x, dim_y) = image.dimensions();
+struct Verify;
 
-    match (lx <= dim_x, ly <= dim_y, rx <= dim_x, ry <= dim_y) {
-        (true, true, true, true) => Ok(()),
-        _ => {
-            println!("error expected");
-            Err(format!("Operation: crop -- Top or bottom selection coordinates out of bounds: selection is [top anchor: \
-                (x={}, y={}), bottom anchor: (x={}, y={})] but max selection range is: (x={}, y={}).", lx, ly, rx, ry, dim_x, dim_y))
+impl Verify {
+    fn verify_crop_selection(lx: u32, ly: u32, rx: u32, ry: u32) -> Result<(), Box<dyn Error>> {
+        if (rx <= lx) || (ry <= ly) {
+            Err(format!(
+                "Operation: crop -- Top selection coordinates are smaller than bottom selection coordinates. \
+            Required top selection < bottom selection but given coordinates are: [top anchor: (x={}, y={}), bottom anchor: (x={}, y={})].",
+                lx, ly, rx, ry
+            ).into())
+        } else {
+            Ok(())
+        }
+    }
+
+    fn verify_crop_selection_within_image_bounds(
+        image: &DynamicImage,
+        lx: u32,
+        ly: u32,
+        rx: u32,
+        ry: u32,
+    ) -> Result<(), Box<dyn Error>> {
+        let (dim_x, dim_y) = image.dimensions();
+
+        match (lx <= dim_x, ly <= dim_y, rx <= dim_x, ry <= dim_y) {
+            (true, true, true, true) => Ok(()),
+            _ => {
+                println!("error expected");
+                Err(format!("Operation: crop -- Top or bottom selection coordinates out of bounds: selection is [top anchor: \
+                (x={}, y={}), bottom anchor: (x={}, y={})] but max selection range is: (x={}, y={}).", lx, ly, rx, ry, dim_x, dim_y).into())
+            }
         }
     }
 }
 
-pub fn apply_operations_on_image(
-    image: &mut DynamicImage,
-    operations: &[Operation],
-) -> Result<(), String> {
-    // this should be possible clean and nice and functional, but right now, I can't come up with it.
-    for op in operations.iter() {
-        *image = image.apply_operation(op)?;
-    }
+// Wrapper for image::FilterType.
+// Does only exists, because image::FilterType does not implement PartialEq and Debug.
+pub enum FilterTypeWrap {
+    It(image::FilterType),
+}
 
-    Ok(())
+impl PartialEq<FilterTypeWrap> for FilterTypeWrap {
+    fn eq(&self, other: &FilterTypeWrap) -> bool {
+        match (self, other) {
+            (
+                FilterTypeWrap::It(image::FilterType::CatmullRom),
+                FilterTypeWrap::It(image::FilterType::CatmullRom),
+            ) => true,
+            (
+                FilterTypeWrap::It(image::FilterType::Gaussian),
+                FilterTypeWrap::It(image::FilterType::Gaussian),
+            ) => true,
+            (
+                FilterTypeWrap::It(image::FilterType::Lanczos3),
+                FilterTypeWrap::It(image::FilterType::Lanczos3),
+            ) => true,
+            (
+                FilterTypeWrap::It(image::FilterType::Nearest),
+                FilterTypeWrap::It(image::FilterType::Nearest),
+            ) => true,
+            (
+                FilterTypeWrap::It(image::FilterType::Triangle),
+                FilterTypeWrap::It(image::FilterType::Triangle),
+            ) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Clone for FilterTypeWrap {
+    fn clone(&self) -> Self {
+        match self {
+            FilterTypeWrap::It(a) => FilterTypeWrap::It(*a),
+        }
+    }
+}
+
+impl Eq for FilterTypeWrap {}
+
+impl Debug for FilterTypeWrap {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        let msg = match self {
+            FilterTypeWrap::It(image::FilterType::CatmullRom) => "image::FilterType::CatmullRom",
+            FilterTypeWrap::It(image::FilterType::Gaussian) => "image::FilterType::Gaussian",
+            FilterTypeWrap::It(image::FilterType::Lanczos3) => "image::FilterType::Lanczos3",
+            FilterTypeWrap::It(image::FilterType::Nearest) => "image::FilterType::Nearest",
+            FilterTypeWrap::It(image::FilterType::Triangle) => "image::FilterType::Triangle",
+        };
+
+        f.write_str(msg)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::operations::mod_test_includes::*;
     use image::GenericImageView;
 
-    use crate::operations::mod_test_includes::*;
+    #[test]
+    fn test_in_progress2() {
+        let img: DynamicImage = setup_default_test_image();
 
-    use super::*;
+        let mut engine = ImageEngine::new(img);
+        let done = engine.ignite(vec![
+            Statement::Operation(Operation::Invert),
+            Statement::Operation(Operation::Brighten(10)),
+            Statement::Operation(Operation::HueRotate(170)),
+            Statement::RegisterEnvironmentItem(EnvironmentItem::Opt(
+                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::It(
+                    image::FilterType::Triangle,
+                )),
+            )),
+            Statement::RegisterEnvironmentItem(EnvironmentItem::Opt(
+                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::It(
+                    image::FilterType::Nearest,
+                )),
+            )),
+        ]);
+
+        assert!(done.is_ok());
+
+        output_test_image_for_manual_inspection(&done.unwrap(), "target/ooo.png")
+    }
 
     #[test]
     fn test_blur() {
         let img: DynamicImage = setup_default_test_image();
-        let operation = Operation::Blur(25.0);
+        let operation = Operation::Blur(10.0);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         output_test_image_for_manual_inspection(&done.unwrap(), "target/test_blur.png")
@@ -120,7 +340,9 @@ mod tests {
 
         let operation = Operation::Brighten(25);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -136,7 +358,9 @@ mod tests {
         let cmp: DynamicImage = setup_default_test_image();
         let operation = Operation::Brighten(0);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -153,7 +377,9 @@ mod tests {
 
         let operation = Operation::Brighten(-25);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -170,7 +396,9 @@ mod tests {
 
         let operation = Operation::Contrast(150.9);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -187,7 +415,9 @@ mod tests {
 
         let operation = Operation::Contrast(-150.9);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -204,7 +434,9 @@ mod tests {
 
         let operation = Operation::Crop(0, 0, 2, 2);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -221,7 +453,9 @@ mod tests {
 
         let operation = Operation::Crop(0, 0, 1, 1);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -244,7 +478,9 @@ mod tests {
 
         let operation = Operation::Crop(0, 0, 2, 1);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -274,7 +510,9 @@ mod tests {
         // not rx >= lx
         let operation = Operation::Crop(1, 0, 0, 0);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_err());
     }
 
@@ -285,7 +523,9 @@ mod tests {
         // not rx >= lx
         let operation = Operation::Crop(0, 1, 0, 0);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_err());
     }
 
@@ -295,7 +535,9 @@ mod tests {
 
         let operation = Operation::Crop(3, 0, 1, 1);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_err());
     }
 
@@ -305,7 +547,9 @@ mod tests {
 
         let operation = Operation::Crop(0, 3, 1, 1);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_err());
     }
 
@@ -315,7 +559,9 @@ mod tests {
 
         let operation = Operation::Crop(0, 0, 3, 1);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_err());
     }
 
@@ -325,7 +571,9 @@ mod tests {
 
         let operation = Operation::Crop(0, 0, 1, 3);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_err());
     }
 
@@ -336,7 +584,9 @@ mod tests {
 
         let operation = Operation::Filter3x3([1.0, 0.5, 0.0, 1.0, 0.5, 0.0, 1.0, 0.5, 0.0]);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -352,7 +602,8 @@ mod tests {
         let operation = Operation::FlipHorizontal;
 
         let (xa, ya) = img.dimensions();
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
@@ -371,7 +622,8 @@ mod tests {
         let operation = Operation::FlipVertical;
 
         let (xa, ya) = img.dimensions();
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
@@ -391,7 +643,8 @@ mod tests {
         let img: DynamicImage = setup_test_image("resources/rainbow_8x6.bmp");
         let operation = Operation::GrayScale;
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
@@ -422,7 +675,9 @@ mod tests {
 
         let operation = Operation::HueRotate(-100);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -439,7 +694,9 @@ mod tests {
 
         let operation = Operation::HueRotate(100);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -456,7 +713,9 @@ mod tests {
 
         let operation = Operation::HueRotate(0);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -473,7 +732,9 @@ mod tests {
 
         let operation = Operation::HueRotate(360);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -492,7 +753,9 @@ mod tests {
 
         let operation = Operation::HueRotate(460);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -509,7 +772,9 @@ mod tests {
 
         let operation = Operation::Invert;
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
+
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -530,7 +795,8 @@ mod tests {
         assert_eq!(xa, 217);
         assert_eq!(ya, 447);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
@@ -547,24 +813,25 @@ mod tests {
     fn test_resize_up_gaussian() {
         // 217x447px => 300x500
         let img: DynamicImage = setup_default_test_image();
-        let operation = Operation::Resize(300, 500);
+        let operation = Operation::Resize(250, 500);
 
         let (xa, ya) = img.dimensions();
 
         assert_eq!(xa, 217);
         assert_eq!(ya, 447);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
         let img_result = done.unwrap();
         let (xb, yb) = img_result.dimensions();
 
-        assert_eq!(xb, 300);
+        assert_eq!(xb, 250);
         assert_eq!(yb, 500);
 
-        output_test_image_for_manual_inspection(&img_result, "target/test_scale_400x500.png")
+        output_test_image_for_manual_inspection(&img_result, "target/test_scale_250x500.png")
     }
 
     #[test]
@@ -573,7 +840,8 @@ mod tests {
         let operation = Operation::Rotate90;
 
         let (xa, ya) = img.dimensions();
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
@@ -592,7 +860,8 @@ mod tests {
         let operation = Operation::Rotate180;
 
         let (xa, ya) = img.dimensions();
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
@@ -611,7 +880,8 @@ mod tests {
         let operation = Operation::Rotate270;
 
         let (xa, ya) = img.dimensions();
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
 
         assert!(done.is_ok());
 
@@ -631,7 +901,8 @@ mod tests {
 
         let operation = Operation::Unsharpen(20.1, 20);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -648,7 +919,8 @@ mod tests {
 
         let operation = Operation::Unsharpen(-20.1, -20);
 
-        let done = img.apply_operation(&operation);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(vec![Statement::Operation(operation)]);
         assert!(done.is_ok());
 
         let result_img = done.unwrap();
@@ -664,31 +936,31 @@ mod tests {
     #[test]
     fn test_multi() {
         // 217x447px original
-        let mut img: DynamicImage = setup_default_test_image();
+        let img: DynamicImage = setup_default_test_image();
         let operations = vec![
-            Operation::Resize(80, 100),
-            Operation::Blur(5.0),
-            Operation::FlipHorizontal,
-            Operation::FlipVertical,
-            Operation::Rotate90,
+            Statement::Operation(Operation::Resize(80, 100)),
+            Statement::Operation(Operation::Blur(5.0)),
+            Statement::Operation(Operation::FlipHorizontal),
+            Statement::Operation(Operation::FlipVertical),
+            Statement::Operation(Operation::Rotate90),
         ];
-
         let (xa, ya) = img.dimensions();
 
         assert_eq!(ya, 447);
         assert_eq!(xa, 217);
 
-        let done = apply_operations_on_image(&mut img, &operations);
+        let mut operator = ImageEngine::new(img);
+        let done = operator.ignite(operations);
 
         assert!(done.is_ok());
 
-        let (xb, yb) = img.dimensions();
+        let done_image = done.unwrap();
+        let (xb, yb) = done_image.dimensions();
 
         // dim original => 80x100 => 100x80
         assert_eq!(xb, 100);
         assert_eq!(yb, 80);
 
-        output_test_image_for_manual_inspection(&img, "target/test_multi.png")
+        output_test_image_for_manual_inspection(&done_image, "target/test_multi.png")
     }
-
 }
