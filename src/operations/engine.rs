@@ -194,10 +194,8 @@ impl ImageEngine {
                     .get("Resize_SamplingFilter")
                     .and_then(|item| {
                         item.opt().and_then(|opt| {
-                            opt.resize_sampling_filter().map(|filter_wrap| {
-                                println!("resize filter: {:?}", filter_wrap);
-                                image::FilterType::from(filter_wrap)
-                            })
+                            opt.resize_sampling_filter()
+                                .map(|filter_wrap| image::FilterType::from(filter_wrap))
                         })
                     })
                     .unwrap_or(DEFAULT_RESIZE_FILTER);
@@ -226,9 +224,6 @@ impl ImageEngine {
 
     pub fn process_register_env(&mut self, item: EnvironmentItem) -> Result<(), Box<dyn Error>> {
         self.environment.insert_or_update(item);
-
-        // todo{}: remove
-        println!("env: {:?}", self.environment.store);
 
         Ok(())
     }
