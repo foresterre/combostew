@@ -17,42 +17,15 @@ trait EnvironmentKey {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum EnvironmentOption {
-    ResizeSamplingFilter(FilterTypeWrap),
-}
-
-impl EnvironmentOption {
-    pub fn resize_sampling_filter(&self) -> Option<FilterTypeWrap> {
-        match self {
-            EnvironmentOption::ResizeSamplingFilter(k) => Some(k.clone()),
-            // _ => None, // not needed right now, but will be needed when adding other options.
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum EnvironmentFlag {
-    // later
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EnvironmentItem {
-    Opt(EnvironmentOption),
-    Flag(EnvironmentFlag),
+    OptResizeSamplingFilter(FilterTypeWrap),
 }
 
 impl EnvironmentItem {
-    pub fn opt(&self) -> Option<EnvironmentOption> {
-        match &self {
-            EnvironmentItem::Opt(k) => Some(k.clone()),
-            EnvironmentItem::Flag(_) => None,
-        }
-    }
-
-    pub fn flag(&self) -> Option<EnvironmentFlag> {
-        match &self {
-            EnvironmentItem::Flag(k) => Some(k.clone()),
-            EnvironmentItem::Opt(_) => None,
+    pub fn resize_sampling_filter(&self) -> Option<FilterTypeWrap> {
+        match self {
+            EnvironmentItem::OptResizeSamplingFilter(k) => Some(k.clone()),
+            // _ => None, // not needed right now, but will be needed when adding other options.
         }
     }
 }
@@ -60,10 +33,7 @@ impl EnvironmentItem {
 impl EnvironmentKey for EnvironmentItem {
     fn key(&self) -> &'static str {
         match self {
-            EnvironmentItem::Opt(EnvironmentOption::ResizeSamplingFilter(_)) => {
-                "Resize_SamplingFilter"
-            }
-            _ => unreachable!(),
+            EnvironmentItem::OptResizeSamplingFilter(_) => "Resize_SamplingFilter",
         }
     }
 }
@@ -96,6 +66,7 @@ impl Environment {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Operation(Operation),
     RegisterEnvironmentItem(EnvironmentItem),
@@ -192,12 +163,8 @@ impl ImageEngine {
                 let filter = self
                     .environment
                     .get("Resize_SamplingFilter")
-                    .and_then(|item| {
-                        item.opt().and_then(|opt| {
-                            opt.resize_sampling_filter()
-                                .map(|filter_wrap| image::FilterType::from(filter_wrap))
-                        })
-                    })
+                    .and_then(|item| item.resize_sampling_filter())
+                    .map(|filter_wrap| image::FilterType::from(filter_wrap))
                     .unwrap_or(DEFAULT_RESIZE_FILTER);
 
                 *self.image = self.image.resize_exact(new_x, new_y, filter);
@@ -360,15 +327,11 @@ mod tests {
             Statement::Operation(Operation::Invert),
             Statement::Operation(Operation::Brighten(10)),
             Statement::Operation(Operation::HueRotate(170)),
-            Statement::RegisterEnvironmentItem(EnvironmentItem::Opt(
-                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::Inner(
-                    image::FilterType::Triangle,
-                )),
+            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter(
+                FilterTypeWrap::Inner(image::FilterType::Triangle),
             )),
-            Statement::RegisterEnvironmentItem(EnvironmentItem::Opt(
-                EnvironmentOption::ResizeSamplingFilter(FilterTypeWrap::Inner(
-                    image::FilterType::Nearest,
-                )),
+            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter(
+                FilterTypeWrap::Inner(image::FilterType::Nearest),
             )),
             Statement::Operation(Operation::Resize(100, 100)),
         ]);
