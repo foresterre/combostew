@@ -12,25 +12,26 @@ _crates.io: [Combostew](https://crates.io/crates/combostew)_
 _Some components could be split to separate crates, perhaps in a workspace, later on._
 
 * Import / export image
-* Image operations
-    * [x] `blur` `[u32]`
-    * [x] `brighten` `[i32]`
-    * [x] `contrast` `[f32]`
-    * [x] `convert`
-    * [x] `crop` `[u32] [u32] [u32] [u32]`
-    * [x] `filter3x3` `[f32] [f32] [f32] [f32] [f32] [f32] [f32] [f32] [f32]`
-    * [x] `fliph`
-    * [x] `flipv`
-    * [x] `grayscale`
-    * [x] `huerotate` `[i32]`
-    * [x] `invert`
-    * [x] `resize` `[u32] [u32]`
-    * [x] `rotate90`
-    * [x] `rotate180`
-    * [x] `rotate270`
-    * [x] `unsharpen` `[f32] [i32]`
-* Shared CLI components
-* Display of licenses of (third party) components used
+* Image operations engine
+    * Operations supported:
+        * [x] `blur` `[u32]`
+        * [x] `brighten` `[i32]`
+        * [x] `contrast` `[f32]`
+        * [x] `convert`
+        * [x] `crop` `[u32] [u32] [u32] [u32]`
+        * [x] `filter3x3` `[f32] [f32] [f32] [f32] [f32] [f32] [f32] [f32] [f32]`
+        * [x] `fliph`
+        * [x] `flipv`
+        * [x] `grayscale`
+        * [x] `huerotate` `[i32]`
+        * [x] `invert`
+        * [x] `resize` `[u32] [u32]`
+        * [x] `rotate90`
+        * [x] `rotate180`
+        * [x] `rotate270`
+        * [x] `unsharpen` `[f32] [i32]`
+    * Ability to set options or flags
+* Display of licenses of (third party) components used _(will be moved)_
 
 
 # Suggestions, Questions, Bugs
