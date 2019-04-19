@@ -165,7 +165,7 @@ impl ImageEngine {
                     .environment
                     .get("Resize_SamplingFilter")
                     .and_then(|item| item.resize_sampling_filter())
-                    .map(|filter_wrap| image::FilterType::from(filter_wrap))
+                    .map(image::FilterType::from)
                     .unwrap_or(DEFAULT_RESIZE_FILTER);
 
                 *self.image = self.image.resize_exact(new_x, new_y, filter);
@@ -321,7 +321,7 @@ impl FilterTypeWrap {
             "lanczos3" => Ok(FilterTypeWrap::Inner(image::FilterType::Lanczos3)),
             "nearest" => Ok(FilterTypeWrap::Inner(image::FilterType::Nearest)),
             "triangle" => Ok(FilterTypeWrap::Inner(image::FilterType::Triangle)),
-            fail => return Err(format!("No such sampling filter: {}", fail).into()),
+            fail => Err(format!("No such sampling filter: {}", fail).into()),
         }
     }
 }
