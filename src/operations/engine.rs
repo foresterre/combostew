@@ -74,6 +74,7 @@ pub enum Statement {
 
 pub type Program = Vec<Statement>;
 
+#[derive(Clone)]
 pub struct ImageEngine {
     environment: Box<Environment>,
     image: Box<DynamicImage>,
@@ -336,17 +337,34 @@ mod tests {
         let img: DynamicImage = setup_default_test_image();
 
         let mut engine = ImageEngine::new(img);
-        let done = engine.ignite(vec![
-            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter())
+        let mut engine2 = engine.clone();
+        let cmp_left = engine.ignite(vec![
+            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter(
+                FilterTypeWrap::Inner(image::FilterType::Nearest),
+            )),
             Statement::Operation(Operation::Resize(100, 100)),
         ]);
 
-        assert!(done.is_ok());
+        assert!(cmp_left.is_ok());
+
+        let cmp_right = engine2.ignite(vec![Statement::Operation(Operation::Resize(100, 100))]);
+
+        assert!(cmp_left.is_ok());
+
+        let left = cmp_left.unwrap();
+        let right = cmp_right.unwrap();
+
+        assert_ne!(left.raw_pixels(), right.raw_pixels());
 
         output_test_image_for_manual_inspection(
-            &done.unwrap(),
-            "target/test_resize_sampling_filter_nearest.png",
-        )
+            &left,
+            "target/test_resize_sampling_filter_left_nearest.png",
+        );
+
+        output_test_image_for_manual_inspection(
+            &right,
+            "target/test_resize_sampling_filter_right_default_gaussian.png",
+        );
     }
 
     #[test]
