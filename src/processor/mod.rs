@@ -2,7 +2,6 @@ use crate::config::Config;
 
 pub mod conversion;
 pub mod encoding_format;
-pub mod image_operations;
 pub mod license_display;
 
 #[cfg(test)]
