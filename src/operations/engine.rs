@@ -7,11 +7,6 @@ use std::fmt::{Debug, Formatter};
 
 /// This version of the operations module will use an AST like structure.
 /// Instead of evaluating a program, we apply 'a language' on an image.
-///
-/// Checklist:
-/// - TODO: replace transformations with v2/'engine'
-/// - think about naming, especially of the module
-
 trait EnvironmentKey {
     fn key(&self) -> &'static str;
 }
