@@ -312,6 +312,19 @@ impl From<FilterTypeWrap> for image::FilterType {
     }
 }
 
+impl FilterTypeWrap {
+    pub fn try_from_str(val: &str) -> Result<FilterTypeWrap, Box<dyn Error>> {
+        match val.to_lowercase().as_str() {
+            "catmullrom" | "cubic" => Ok(FilterTypeWrap::Inner(image::FilterType::CatmullRom)),
+            "gaussian" => Ok(FilterTypeWrap::Inner(image::FilterType::Gaussian)),
+            "lanczos3" => Ok(FilterTypeWrap::Inner(image::FilterType::Lanczos3)),
+            "nearest" => Ok(FilterTypeWrap::Inner(image::FilterType::Nearest)),
+            "triangle" => Ok(FilterTypeWrap::Inner(image::FilterType::Triangle)),
+            fail => return Err(format!("No such sampling filter: {}", fail).into()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,15 +337,7 @@ mod tests {
 
         let mut engine = ImageEngine::new(img);
         let done = engine.ignite(vec![
-            Statement::Operation(Operation::Invert),
-            Statement::Operation(Operation::Brighten(10)),
-            Statement::Operation(Operation::HueRotate(170)),
-            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter(
-                FilterTypeWrap::Inner(image::FilterType::Triangle),
-            )),
-            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter(
-                FilterTypeWrap::Inner(image::FilterType::Nearest),
-            )),
+            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter())
             Statement::Operation(Operation::Resize(100, 100)),
         ]);
 
