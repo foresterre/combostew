@@ -5,6 +5,11 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
 
+pub(in crate::operations) mod key_table {
+    pub(in crate::operations) const OPT_RESIZE_SAMPLING_FILTER: &'static str =
+        "Resize_SamplingFilter";
+}
+
 /// This version of the operations module will use an AST like structure.
 /// Instead of evaluating a program, we apply 'a language' on an image.
 trait EnvironmentKey {
@@ -28,7 +33,7 @@ impl EnvironmentItem {
 impl EnvironmentKey for EnvironmentItem {
     fn key(&self) -> &'static str {
         match self {
-            EnvironmentItem::OptResizeSamplingFilter(_) => "Resize_SamplingFilter",
+            EnvironmentItem::OptResizeSamplingFilter(_) => key_table::OPT_RESIZE_SAMPLING_FILTER,
         }
     }
 }
@@ -54,6 +59,10 @@ impl Environment {
         } else {
             self.store.insert(key, item);
         }
+    }
+
+    pub fn remove(&mut self, key: &'static str) -> Option<()> {
+        self.store.remove(key).map(|_| ())
     }
 
     pub fn get(&mut self, key: &'static str) -> Option<&EnvironmentItem> {
@@ -158,7 +167,7 @@ impl ImageEngine {
 
                 let filter = self
                     .environment
-                    .get("Resize_SamplingFilter")
+                    .get(key_table::OPT_RESIZE_SAMPLING_FILTER)
                     .and_then(|item| item.resize_sampling_filter())
                     .map(image::FilterType::from)
                     .unwrap_or(DEFAULT_RESIZE_FILTER);
@@ -319,6 +328,98 @@ impl FilterTypeWrap {
             fail => Err(format!("No such sampling filter: {}", fail).into()),
         }
     }
+}
+
+#[cfg(test)]
+mod environment_tests {
+    use super::*;
+    use image::FilterType;
+
+    #[test]
+    fn environment_insert() {
+        let mut env = Environment::default();
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Triangle),
+        ));
+
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+    }
+
+    #[test]
+    fn environment_update() {
+        let mut env = Environment::default();
+
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Triangle),
+        ));
+
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+        assert_eq!(
+            EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Triangle)),
+            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+        );
+
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Gaussian),
+        ));
+
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+        assert_eq!(
+            EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Gaussian)),
+            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+        );
+    }
+
+    #[test]
+    fn environment_remove() {
+        let mut env = Environment::default();
+
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Triangle),
+        ));
+
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+        assert_eq!(
+            EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Triangle)),
+            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+        );
+
+        let removed = env.remove(key_table::OPT_RESIZE_SAMPLING_FILTER);
+
+        assert!(removed.is_some());
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+    }
+
+    #[test]
+    fn environment_remove_not_existing() {
+        let mut env = Environment::default();
+
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+
+        let removed = env.remove(key_table::OPT_RESIZE_SAMPLING_FILTER);
+
+        assert!(removed.is_none());
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+    }
+
 }
 
 #[cfg(test)]
