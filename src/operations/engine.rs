@@ -1,9 +1,16 @@
-use crate::operations::Operation;
-use image::DynamicImage;
-use image::GenericImageView;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt::{Debug, Formatter};
+
+use image::DynamicImage;
+use image::GenericImageView;
+
+use crate::operations::wrapper::filter_type::FilterTypeWrap;
+use crate::operations::Operation;
+
+pub(in crate::operations) mod key_table {
+    pub(in crate::operations) const OPT_RESIZE_SAMPLING_FILTER: &'static str =
+        "Resize_SamplingFilter";
+}
 
 /// This version of the operations module will use an AST like structure.
 /// Instead of evaluating a program, we apply 'a language' on an image.
@@ -28,7 +35,7 @@ impl EnvironmentItem {
 impl EnvironmentKey for EnvironmentItem {
     fn key(&self) -> &'static str {
         match self {
-            EnvironmentItem::OptResizeSamplingFilter(_) => "Resize_SamplingFilter",
+            EnvironmentItem::OptResizeSamplingFilter(_) => key_table::OPT_RESIZE_SAMPLING_FILTER,
         }
     }
 }
@@ -56,6 +63,10 @@ impl Environment {
         }
     }
 
+    pub fn remove(&mut self, key: &'static str) -> Option<()> {
+        self.store.remove(key).map(|_| ())
+    }
+
     pub fn get(&mut self, key: &'static str) -> Option<&EnvironmentItem> {
         self.store.get(key)
     }
@@ -65,6 +76,7 @@ impl Environment {
 pub enum Statement {
     Operation(Operation),
     RegisterEnvironmentItem(EnvironmentItem),
+    DeregisterEnvironmentItem(&'static str),
 }
 
 pub type Program = Vec<Statement>;
@@ -98,6 +110,7 @@ impl ImageEngine {
         match statement {
             Statement::Operation(op) => self.process_operation(op),
             Statement::RegisterEnvironmentItem(item) => self.process_register_env(item),
+            Statement::DeregisterEnvironmentItem(key) => self.process_deregister_env(key),
         }
     }
 
@@ -158,7 +171,7 @@ impl ImageEngine {
 
                 let filter = self
                     .environment
-                    .get("Resize_SamplingFilter")
+                    .get(key_table::OPT_RESIZE_SAMPLING_FILTER)
                     .and_then(|item| item.resize_sampling_filter())
                     .map(image::FilterType::from)
                     .unwrap_or(DEFAULT_RESIZE_FILTER);
@@ -187,6 +200,17 @@ impl ImageEngine {
 
     pub fn process_register_env(&mut self, item: EnvironmentItem) -> Result<(), Box<dyn Error>> {
         self.environment.insert_or_update(item);
+
+        Ok(())
+    }
+
+    pub fn process_deregister_env(&mut self, key: &'static str) -> Result<(), Box<dyn Error>> {
+        let _ = self.environment.remove(key);
+
+        eprintln!(
+            "Warning: tried to de-register: {}, but wasn't registered.",
+            key
+        );
 
         Ok(())
     }
@@ -232,100 +256,106 @@ impl Verify {
     }
 }
 
-// Wrapper for image::FilterType.
-// Does only exists, because image::FilterType does not implement PartialEq and Debug.
-pub enum FilterTypeWrap {
-    Inner(image::FilterType),
-}
+#[cfg(test)]
+mod environment_tests {
+    use image::FilterType;
 
-impl PartialEq<FilterTypeWrap> for FilterTypeWrap {
-    fn eq(&self, other: &FilterTypeWrap) -> bool {
-        match (self, other) {
-            (
-                FilterTypeWrap::Inner(image::FilterType::CatmullRom),
-                FilterTypeWrap::Inner(image::FilterType::CatmullRom),
-            ) => true,
-            (
-                FilterTypeWrap::Inner(image::FilterType::Gaussian),
-                FilterTypeWrap::Inner(image::FilterType::Gaussian),
-            ) => true,
-            (
-                FilterTypeWrap::Inner(image::FilterType::Lanczos3),
-                FilterTypeWrap::Inner(image::FilterType::Lanczos3),
-            ) => true,
-            (
-                FilterTypeWrap::Inner(image::FilterType::Nearest),
-                FilterTypeWrap::Inner(image::FilterType::Nearest),
-            ) => true,
-            (
-                FilterTypeWrap::Inner(image::FilterType::Triangle),
-                FilterTypeWrap::Inner(image::FilterType::Triangle),
-            ) => true,
-            _ => false,
-        }
+    use super::*;
+
+    #[test]
+    fn environment_insert() {
+        let mut env = Environment::default();
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Triangle),
+        ));
+
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
     }
-}
 
-impl Clone for FilterTypeWrap {
-    fn clone(&self) -> Self {
-        match self {
-            FilterTypeWrap::Inner(a) => FilterTypeWrap::Inner(*a),
-        }
+    #[test]
+    fn environment_update() {
+        let mut env = Environment::default();
+
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Triangle),
+        ));
+
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+        assert_eq!(
+            EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Triangle)),
+            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+        );
+
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Gaussian),
+        ));
+
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+        assert_eq!(
+            EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Gaussian)),
+            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+        );
     }
-}
 
-impl Eq for FilterTypeWrap {}
+    #[test]
+    fn environment_remove() {
+        let mut env = Environment::default();
 
-impl Debug for FilterTypeWrap {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        let msg = match self {
-            FilterTypeWrap::Inner(image::FilterType::CatmullRom) => {
-                "image::FilterType::CatmullRom (Wrapper)"
-            }
-            FilterTypeWrap::Inner(image::FilterType::Gaussian) => {
-                "image::FilterType::Gaussian (Wrapper)"
-            }
-            FilterTypeWrap::Inner(image::FilterType::Lanczos3) => {
-                "image::FilterType::Lanczos3 (Wrapper)"
-            }
-            FilterTypeWrap::Inner(image::FilterType::Nearest) => {
-                "image::FilterType::Nearest (Wrapper)"
-            }
-            FilterTypeWrap::Inner(image::FilterType::Triangle) => {
-                "image::FilterType::Triangle (Wrapper)"
-            }
-        };
+        env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
+            FilterTypeWrap::Inner(FilterType::Triangle),
+        ));
 
-        f.write_str(msg)
+        assert!(env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+        assert_eq!(
+            EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Triangle)),
+            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+        );
+
+        let removed = env.remove(key_table::OPT_RESIZE_SAMPLING_FILTER);
+
+        assert!(removed.is_some());
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
     }
-}
 
-impl From<FilterTypeWrap> for image::FilterType {
-    fn from(wrap: FilterTypeWrap) -> Self {
-        match wrap {
-            FilterTypeWrap::Inner(w) => w,
-        }
-    }
-}
+    #[test]
+    fn environment_remove_not_existing() {
+        let mut env = Environment::default();
 
-impl FilterTypeWrap {
-    pub fn try_from_str(val: &str) -> Result<FilterTypeWrap, Box<dyn Error>> {
-        match val.to_lowercase().as_str() {
-            "catmullrom" | "cubic" => Ok(FilterTypeWrap::Inner(image::FilterType::CatmullRom)),
-            "gaussian" => Ok(FilterTypeWrap::Inner(image::FilterType::Gaussian)),
-            "lanczos3" => Ok(FilterTypeWrap::Inner(image::FilterType::Lanczos3)),
-            "nearest" => Ok(FilterTypeWrap::Inner(image::FilterType::Nearest)),
-            "triangle" => Ok(FilterTypeWrap::Inner(image::FilterType::Triangle)),
-            fail => Err(format!("No such sampling filter: {}", fail).into()),
-        }
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+
+        let removed = env.remove(key_table::OPT_RESIZE_SAMPLING_FILTER);
+
+        assert!(removed.is_none());
+        assert!(!env
+            .store
+            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
     }
+
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::operations::mod_test_includes::*;
     use image::GenericImageView;
+
+    use crate::operations::mod_test_includes::*;
+
+    use super::*;
 
     #[test]
     fn resize_with_sampling_filter_nearest() {
@@ -359,6 +389,43 @@ mod tests {
         output_test_image_for_manual_inspection(
             &right,
             "target/test_resize_sampling_filter_right_default_gaussian.png",
+        );
+    }
+
+    #[test]
+    fn register_unregister_sampling_filter() {
+        let img: DynamicImage = setup_default_test_image();
+
+        let mut engine = ImageEngine::new(img);
+        let mut engine2 = engine.clone();
+
+        let cmp_left = engine.ignite(vec![
+            Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter(
+                FilterTypeWrap::Inner(image::FilterType::Nearest),
+            )),
+            Statement::DeregisterEnvironmentItem(key_table::OPT_RESIZE_SAMPLING_FILTER),
+            Statement::Operation(Operation::Resize(100, 100)),
+        ]);
+
+        assert!(cmp_left.is_ok());
+
+        let cmp_right = engine2.ignite(vec![Statement::Operation(Operation::Resize(100, 100))]);
+
+        assert!(cmp_left.is_ok());
+
+        let left = cmp_left.unwrap();
+        let right = cmp_right.unwrap();
+
+        assert_eq!(left.raw_pixels(), right.raw_pixels());
+
+        output_test_image_for_manual_inspection(
+            &left,
+            "target/test_register_unregister_sampling_filter_left.png",
+        );
+
+        output_test_image_for_manual_inspection(
+            &right,
+            "target/test_register_unregister_sampling_filter_right.png",
         );
     }
 

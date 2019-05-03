@@ -2,6 +2,7 @@
 mod mod_test_includes;
 
 pub mod engine;
+pub mod wrapper;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operation {
