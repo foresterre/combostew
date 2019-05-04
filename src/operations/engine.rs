@@ -10,6 +10,10 @@ use crate::operations::Operation;
 pub(in crate::operations) mod key_table {
     pub(in crate::operations) const OPT_RESIZE_SAMPLING_FILTER: &'static str =
         "Resize_SamplingFilter";
+
+    pub(in crate::operations) const OPT_RESIZE_PRESERVE_ASPECT_RATIO: &'static str =
+        "Resize_PreserveAspectRatio";
+
 }
 
 /// This version of the operations module will use an AST like structure.
@@ -21,13 +25,14 @@ trait EnvironmentKey {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EnvironmentItem {
     OptResizeSamplingFilter(FilterTypeWrap),
+    PreserveAspectRatio,
 }
 
 impl EnvironmentItem {
     pub fn resize_sampling_filter(&self) -> Option<FilterTypeWrap> {
         match self {
             EnvironmentItem::OptResizeSamplingFilter(k) => Some(k.clone()),
-            // _ => None, // not needed right now, but will be needed when adding other options.
+            _ => None,
         }
     }
 }
@@ -36,6 +41,7 @@ impl EnvironmentKey for EnvironmentItem {
     fn key(&self) -> &'static str {
         match self {
             EnvironmentItem::OptResizeSamplingFilter(_) => key_table::OPT_RESIZE_SAMPLING_FILTER,
+            EnvironmentItem::PreserveAspectRatio => key_table::OPT_RESIZE_PRESERVE_ASPECT_RATIO,
         }
     }
 }
@@ -176,7 +182,16 @@ impl ImageEngine {
                     .map(image::FilterType::from)
                     .unwrap_or(DEFAULT_RESIZE_FILTER);
 
-                *self.image = self.image.resize_exact(new_x, new_y, filter);
+                *self.image = if self
+                    .environment
+                    .get(key_table::OPT_RESIZE_PRESERVE_ASPECT_RATIO)
+                    .is_some()
+                {
+                    self.image.resize(new_x, new_y, filter)
+                } else {
+                    self.image.resize_exact(new_x, new_y, filter)
+                };
+
                 Ok(())
             }
             Operation::Rotate90 => {
@@ -356,6 +371,43 @@ mod tests {
     use crate::operations::mod_test_includes::*;
 
     use super::*;
+
+    #[test]
+    fn resize_with_preserve_aspect_ratio() {
+        // W 217 H 447
+        let img: DynamicImage = setup_default_test_image();
+
+        let mut engine = ImageEngine::new(img);
+        let mut engine2 = engine.clone();
+        let cmp_left = engine.ignite(vec![
+            Statement::RegisterEnvironmentItem(EnvironmentItem::PreserveAspectRatio),
+            Statement::Operation(Operation::Resize(100, 100)),
+        ]);
+
+        assert!(cmp_left.is_ok());
+
+        let cmp_right = engine2.ignite(vec![Statement::Operation(Operation::Resize(100, 100))]);
+
+        assert!(cmp_left.is_ok());
+
+        let left = cmp_left.unwrap();
+        let right = cmp_right.unwrap();
+
+        assert_ne!(left.raw_pixels(), right.raw_pixels());
+
+        // 447 > 217 ->  (u32) |_ 217px/447px*100px _| = 48px
+        assert_eq!((48, 100), left.dimensions());
+
+        output_test_image_for_manual_inspection(
+            &left,
+            "target/test_resize_preserve_aspect_ratio_left_preserve.png",
+        );
+
+        output_test_image_for_manual_inspection(
+            &right,
+            "target/test_resize_preserve_aspect_ratio_right_default.png",
+        );
+    }
 
     #[test]
     fn resize_with_sampling_filter_nearest() {
