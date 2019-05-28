@@ -1,3 +1,5 @@
+/// This version of the operations module will use an AST like structure.
+/// Instead of evaluating a program, we apply 'a language' on an image.
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -7,19 +9,14 @@ use image::GenericImageView;
 use crate::operations::wrapper::filter_type::FilterTypeWrap;
 use crate::operations::Operation;
 
-pub(in crate::operations) mod key_table {
-    pub(in crate::operations) const OPT_RESIZE_SAMPLING_FILTER: &'static str =
-        "Resize_SamplingFilter";
-
-    pub(in crate::operations) const OPT_RESIZE_PRESERVE_ASPECT_RATIO: &'static str =
-        "Resize_PreserveAspectRatio";
-
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+pub enum EnvironmentKind {
+    OptResizeSamplingFilter,
+    OptResizePreserveAspectRatio,
 }
 
-/// This version of the operations module will use an AST like structure.
-/// Instead of evaluating a program, we apply 'a language' on an image.
 trait EnvironmentKey {
-    fn key(&self) -> &'static str;
+    fn key(&self) -> EnvironmentKind;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,17 +35,17 @@ impl EnvironmentItem {
 }
 
 impl EnvironmentKey for EnvironmentItem {
-    fn key(&self) -> &'static str {
+    fn key(&self) -> EnvironmentKind {
         match self {
-            EnvironmentItem::OptResizeSamplingFilter(_) => key_table::OPT_RESIZE_SAMPLING_FILTER,
-            EnvironmentItem::PreserveAspectRatio => key_table::OPT_RESIZE_PRESERVE_ASPECT_RATIO,
+            EnvironmentItem::OptResizeSamplingFilter(_) => EnvironmentKind::OptResizeSamplingFilter,
+            EnvironmentItem::PreserveAspectRatio => EnvironmentKind::OptResizePreserveAspectRatio,
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Environment {
-    store: HashMap<&'static str, EnvironmentItem>,
+    store: HashMap<EnvironmentKind, EnvironmentItem>,
 }
 
 impl Default for Environment {
@@ -62,19 +59,19 @@ impl Default for Environment {
 impl Environment {
     pub fn insert_or_update(&mut self, item: EnvironmentItem) {
         let key = item.key();
-        if self.store.contains_key(key) {
-            *self.store.get_mut(key).unwrap() = item;
+        if self.store.contains_key(&key) {
+            *self.store.get_mut(&key).unwrap() = item;
         } else {
             self.store.insert(key, item);
         }
     }
 
-    pub fn remove(&mut self, key: &'static str) -> Option<()> {
-        self.store.remove(key).map(|_| ())
+    pub fn remove(&mut self, key: EnvironmentKind) -> Option<()> {
+        self.store.remove(&key).map(|_| ())
     }
 
-    pub fn get(&mut self, key: &'static str) -> Option<&EnvironmentItem> {
-        self.store.get(key)
+    pub fn get(&mut self, key: EnvironmentKind) -> Option<&EnvironmentItem> {
+        self.store.get(&key)
     }
 }
 
@@ -82,7 +79,7 @@ impl Environment {
 pub enum Statement {
     Operation(Operation),
     RegisterEnvironmentItem(EnvironmentItem),
-    DeregisterEnvironmentItem(&'static str),
+    DeregisterEnvironmentItem(EnvironmentKind),
 }
 
 pub type Program = Vec<Statement>;
@@ -177,14 +174,14 @@ impl ImageEngine {
 
                 let filter = self
                     .environment
-                    .get(key_table::OPT_RESIZE_SAMPLING_FILTER)
+                    .get(EnvironmentKind::OptResizeSamplingFilter)
                     .and_then(|item| item.resize_sampling_filter())
                     .map(image::FilterType::from)
                     .unwrap_or(DEFAULT_RESIZE_FILTER);
 
                 *self.image = if self
                     .environment
-                    .get(key_table::OPT_RESIZE_PRESERVE_ASPECT_RATIO)
+                    .get(EnvironmentKind::OptResizePreserveAspectRatio)
                     .is_some()
                 {
                     self.image.resize(new_x, new_y, filter)
@@ -219,13 +216,15 @@ impl ImageEngine {
         Ok(())
     }
 
-    pub fn process_deregister_env(&mut self, key: &'static str) -> Result<(), Box<dyn Error>> {
-        let _ = self.environment.remove(key);
+    pub fn process_deregister_env(&mut self, key: EnvironmentKind) -> Result<(), Box<dyn Error>> {
+        let success = self.environment.remove(key);
 
-        eprintln!(
-            "Warning: tried to de-register: {}, but wasn't registered.",
-            key
-        );
+        if success.is_none() {
+            eprintln!(
+                "Warning: tried to de-register: {:?}, but wasn't registered.",
+                key.clone()
+            );
+        }
 
         Ok(())
     }
@@ -282,7 +281,7 @@ mod environment_tests {
         let mut env = Environment::default();
         assert!(!env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
 
         env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
             FilterTypeWrap::Inner(FilterType::Triangle),
@@ -290,7 +289,7 @@ mod environment_tests {
 
         assert!(env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
     }
 
     #[test]
@@ -303,10 +302,10 @@ mod environment_tests {
 
         assert!(env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
         assert_eq!(
             EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Triangle)),
-            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+            *env.get(EnvironmentKind::OptResizeSamplingFilter).unwrap()
         );
 
         env.insert_or_update(EnvironmentItem::OptResizeSamplingFilter(
@@ -315,10 +314,10 @@ mod environment_tests {
 
         assert!(env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
         assert_eq!(
             EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Gaussian)),
-            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+            *env.get(EnvironmentKind::OptResizeSamplingFilter).unwrap()
         );
     }
 
@@ -332,18 +331,18 @@ mod environment_tests {
 
         assert!(env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
         assert_eq!(
             EnvironmentItem::OptResizeSamplingFilter(FilterTypeWrap::Inner(FilterType::Triangle)),
-            *env.get(key_table::OPT_RESIZE_SAMPLING_FILTER).unwrap()
+            *env.get(EnvironmentKind::OptResizeSamplingFilter).unwrap()
         );
 
-        let removed = env.remove(key_table::OPT_RESIZE_SAMPLING_FILTER);
+        let removed = env.remove(EnvironmentKind::OptResizeSamplingFilter);
 
         assert!(removed.is_some());
         assert!(!env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
     }
 
     #[test]
@@ -352,16 +351,15 @@ mod environment_tests {
 
         assert!(!env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
 
-        let removed = env.remove(key_table::OPT_RESIZE_SAMPLING_FILTER);
+        let removed = env.remove(EnvironmentKind::OptResizeSamplingFilter);
 
         assert!(removed.is_none());
         assert!(!env
             .store
-            .contains_key(key_table::OPT_RESIZE_SAMPLING_FILTER));
+            .contains_key(&EnvironmentKind::OptResizeSamplingFilter));
     }
-
 }
 
 #[cfg(test)]
@@ -455,7 +453,7 @@ mod tests {
             Statement::RegisterEnvironmentItem(EnvironmentItem::OptResizeSamplingFilter(
                 FilterTypeWrap::Inner(image::FilterType::Nearest),
             )),
-            Statement::DeregisterEnvironmentItem(key_table::OPT_RESIZE_SAMPLING_FILTER),
+            Statement::DeregisterEnvironmentItem(EnvironmentKind::OptResizeSamplingFilter),
             Statement::Operation(Operation::Resize(100, 100)),
         ]);
 
