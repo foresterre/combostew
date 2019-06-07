@@ -3,20 +3,29 @@ use std::process;
 use crate::config::{Config, SelectedLicenses};
 use crate::processor::ProcessWithConfig;
 
-const SIC_LICENSE: &str = include_str!("../../LICENSE");
-const DEP_LICENSES: &str = include_str!("../../thirdparty/licenses.txt");
-
 #[derive(Debug, Default)]
-pub struct LicenseDisplayProcessor;
+pub struct LicenseDisplayProcessor<'a> {
+    self_license: &'a str,
+    dependency_licenses: &'a str,
+}
 
-impl LicenseDisplayProcessor {
-    fn print_licenses(slice: &[SelectedLicenses], tool_name: &str) {
+impl<'a> LicenseDisplayProcessor<'a> {
+    pub fn new(self_license: &'a str, dependency_licenses: &'a str) -> LicenseDisplayProcessor<'a> {
+        LicenseDisplayProcessor {
+            self_license,
+            dependency_licenses,
+        }
+    }
+}
+
+impl<'a> LicenseDisplayProcessor<'a> {
+    fn print_licenses(&self, slice: &[SelectedLicenses], tool_name: &str) {
         for item in slice {
             match item {
                 SelectedLicenses::ThisSoftware => {
-                    println!("{} image tools license:\n\n{}\n\n", tool_name, SIC_LICENSE);
+                    println!("{} image tools license:\n\n{}\n\n", tool_name, &self.self_license);
                 }
-                SelectedLicenses::Dependencies => println!("{}", DEP_LICENSES),
+                SelectedLicenses::Dependencies => println!("{}", &self.dependency_licenses),
             };
         }
 
@@ -26,8 +35,8 @@ impl LicenseDisplayProcessor {
     }
 }
 
-impl ProcessWithConfig<()> for LicenseDisplayProcessor {
+impl ProcessWithConfig<()> for LicenseDisplayProcessor<'_> {
     fn process(&self, config: &Config) {
-        LicenseDisplayProcessor::print_licenses(&config.licenses, &config.tool_name);
+        self.print_licenses(&config.licenses, &config.tool_name);
     }
 }
