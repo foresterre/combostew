@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::Command;
 use std::str;
 
-const DEP_LICENSES_PATH: &str = "LICENSES_DEPENDENCIES";
+const DEP_LICENSES_PATH: &str = "thirdparty/licenses.txt";
 
 // The `update_dep_licenses` script is no longer a build.rs, mandatory pre-build script.
 // To solve issues with `cargo install` (1) and ensure that the licenses of dependencies are
