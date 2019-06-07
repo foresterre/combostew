@@ -84,6 +84,8 @@ fn main() {
     write_file(DEP_LICENSES_PATH, &dep_licenses_in_bytes);
 
     println!("Completed the update process of the dependency licenses file.");
+
+    std::fs::remove_file("Cargo.lock").expect("Unable to remove lock file.");
 }
 
 fn write_file(path: &str, contents: &[u8]) {
