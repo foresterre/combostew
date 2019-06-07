@@ -4,7 +4,7 @@ use crate::config::{Config, SelectedLicenses};
 use crate::processor::ProcessWithConfig;
 
 const SIC_LICENSE: &str = include_str!("../../LICENSE");
-const DEP_LICENSES: &str = include_str!("../../LICENSES_DEPENDENCIES");
+const DEP_LICENSES: &str = include_str!("../../thirdparty/licenses.txt");
 
 #[derive(Debug, Default)]
 pub struct LicenseDisplayProcessor;
