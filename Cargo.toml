@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 name = "combostew"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Martijn Gribnau <garm@ilumeo.com>"]
 description = "Combostew is an intermediate layer between the image crate and the 'sic' and 'stew' image tool front-ends."
 license = "MIT"
