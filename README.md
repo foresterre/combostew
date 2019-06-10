@@ -1,4 +1,4 @@
-Moved to sic repository, as a workspace crate ([here](https://github.com/foresterre/sic/tree/workspace_combostew/combostew)).
+Moved to sic repository, as a workspace crate ([here](https://github.com/foresterre/sic/tree/master/combostew)).
 
 # combostew
 
