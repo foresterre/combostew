@@ -1,3 +1,5 @@
+Moved to sic repository, as a workspace crate ([here](https://github.com/foresterre/sic/tree/workspace_combostew/combostew)).
+
 # combostew
 
 Combostew is an intermediate layer between the 'image' crate used as back-end by image tool cli front-ends
@@ -13,26 +15,9 @@ _Some components could be split to separate crates, perhaps in a workspace, late
 
 * Import / export image
 * Image operations engine
-    * Operations supported:
-        * [x] `blur` `[u32]`
-        * [x] `brighten` `[i32]`
-        * [x] `contrast` `[f32]`
-        * [x] `convert`
-        * [x] `crop` `[u32] [u32] [u32] [u32]`
-        * [x] `filter3x3` `[f32] [f32] [f32] [f32] [f32] [f32] [f32] [f32] [f32]`
-        * [x] `fliph`
-        * [x] `flipv`
-        * [x] `grayscale`
-        * [x] `huerotate` `[i32]`
-        * [x] `invert`
-        * [x] `resize` `[u32] [u32]`
-        * [x] `rotate90`
-        * [x] `rotate180`
-        * [x] `rotate270`
-        * [x] `unsharpen` `[f32] [i32]`
+    * Operations supported: _blur, brighten, contrast, crop, filter3x3, fliph, flipv, grayscale, huerotate, invert, resize, rotate90, rotate180, rotate270 and unsharpen._
     * Ability to set options or flags
 * Display of licenses of (third party) components used _(will be moved)_
-
 
 # Suggestions, Questions, Bugs
 
