@@ -1,4 +1,10 @@
-# combostew
+# Deprecated
+
+This crate is deprecated. 
+Functionality which was still in use has been transferred to several workspace crates within [sic](https://github.com/foresterre/sic).
+
+
+# Combostew
 
 Combostew is an intermediate layer between the 'image' crate used as back-end by image tool cli front-ends
 [sic](https://github.com/foresterre/sic) and [stew](https://github.com/foresterre/stew).
